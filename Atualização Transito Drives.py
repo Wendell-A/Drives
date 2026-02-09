@@ -1,22 +1,59 @@
 import os
+import re
 import logging
 import pandas as pd
 import requests
 import unicodedata 
 import time
 from dotenv import load_dotenv
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+from pathlib import Path
 from typing import List, Dict, Any
 
 # ==============================================================================
 # CONFIGURAÇÃO E LOGGING
 # ==============================================================================
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
-)
+def setup_logging():
+    """
+    Configura o sistema de logging com:
+    - Console: mostra todos os logs (INFO, WARNING, ERROR)
+    - Arquivo: salva apenas WARNING e ERROR na pasta logs/
+    """
+    # Criar pasta de logs se não existir
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Nome do arquivo de log baseado no nome do script
+    script_name = Path(__file__).stem
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = logs_dir / f"{script_name}_erros_{timestamp}.log"
+    
+    # Configurar formato dos logs
+    log_format = '%(asctime)s - %(levelname)s - %(message)s'
+    date_format = '%Y-%m-%d %H:%M:%S'
+    
+    # Handler para console (todos os níveis)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter(log_format, date_format))
+    
+    # Handler para arquivo (apenas WARNING e ERROR)
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.WARNING)  # Apenas WARNING e ERROR
+    file_handler.setFormatter(logging.Formatter(log_format, date_format))
+    
+    # Configurar o logger raiz
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers.clear()  # Limpar handlers padrão
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+    
+    logging.info(f"📝 Sistema de logs configurado. Logs de erro serão salvos em: {log_file}")
+    return log_file
 
+# Configurar logging
+log_file_path = setup_logging()
 load_dotenv()
 
 class Config:
@@ -86,36 +123,118 @@ class SharePointClient:
             "client_secret": self.config.CLIENT_SECRET,
             "scope": "https://graph.microsoft.com/.default"
         }
-        r = requests.post(url, data=data)
-        r.raise_for_status()
-        return r.json()["access_token"]
+        try:
+            r = requests.post(url, data=data)
+            r.raise_for_status()
+            return r.json()["access_token"]
+        except requests.exceptions.RequestException as e:
+            status_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
+            response_text = getattr(e.response, 'text', None) if hasattr(e, 'response') and hasattr(e.response, 'text') else None
+            logging.error(
+                f"❌ ERRO ao obter token de acesso\n"
+                f"   🔗 URL: {url}\n"
+                f"   📊 Status Code: {status_code or 'N/A'}\n"
+                f"   📝 Response: {response_text[:500] if response_text else 'N/A'}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
+            raise
 
     def _api_get(self, url: str) -> Any:
         headers = {"Authorization": f"Bearer {self.access_token}"}
-        r = requests.get(url, headers=headers)
-        r.raise_for_status()
-        return r.json()
+        try:
+            r = requests.get(url, headers=headers)
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.RequestException as e:
+            status_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
+            response_text = getattr(e.response, 'text', None) if hasattr(e, 'response') and hasattr(e.response, 'text') else None
+            logging.error(
+                f"❌ ERRO na requisição GET\n"
+                f"   🔗 URL: {url}\n"
+                f"   📊 Status Code: {status_code or 'N/A'}\n"
+                f"   📝 Response: {response_text[:500] if response_text else 'N/A'}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
+            raise
 
     def _api_patch(self, url: str, json_data: Dict) -> Any:
         headers = {"Authorization": f"Bearer {self.access_token}", "Content-Type": "application/json"}
-        r = requests.patch(url, headers=headers, json=json_data)
-        r.raise_for_status()
-        return r.json()
+        try:
+            r = requests.patch(url, headers=headers, json=json_data)
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.RequestException as e:
+            status_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
+            response_text = getattr(e.response, 'text', None) if hasattr(e, 'response') and hasattr(e.response, 'text') else None
+            logging.error(
+                f"❌ ERRO na requisição PATCH\n"
+                f"   🔗 URL: {url}\n"
+                f"   📦 Payload: {json_data}\n"
+                f"   📊 Status Code: {status_code or 'N/A'}\n"
+                f"   📝 Response: {response_text[:500] if response_text else 'N/A'}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
+            raise
 
     def _get_id(self, resource: str, path: str) -> str:
-        return self._api_get(f"https://graph.microsoft.com/v1.0/{resource}/{path}")['id']
+        try:
+            url = f"https://graph.microsoft.com/v1.0/{resource}/{path}"
+            return self._api_get(url)['id']
+        except requests.exceptions.HTTPError as e:
+            if hasattr(e, 'response') and e.response.status_code == 404:
+                logging.error(
+                    f"❌ RECURSO NÃO ENCONTRADO\n"
+                    f"   📍 Resource: {resource}\n"
+                    f"   📍 Path: {path}\n"
+                    f"   🔗 URL: https://graph.microsoft.com/v1.0/{resource}/{path}\n"
+                    f"   📊 Status Code: 404"
+                )
+            raise
 
     def _get_main_drive_id(self) -> str:
-        drives = self._api_get(f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/drives")["value"]
-        for d in drives:
-            if d.get('name') == 'Documentos': return d['id']
-        raise Exception("Biblioteca 'Documentos' não encontrada.")
+        try:
+            drives = self._api_get(f"https://graph.microsoft.com/v1.0/sites/{self.site_id}/drives")["value"]
+            for d in drives:
+                if d.get('name') == 'Documentos': return d['id']
+            logging.error(
+                f"❌ BIBLIOTECA 'DOCUMENTOS' NÃO ENCONTRADA\n"
+                f"   🆔 Site ID: {self.site_id}\n"
+                f"   📋 Drives disponíveis: {', '.join([d.get('name', 'N/A') for d in drives])}"
+            )
+            raise Exception("Biblioteca 'Documentos' não encontrada.")
+        except Exception as e:
+            logging.error(
+                f"❌ ERRO ao buscar biblioteca 'Documentos'\n"
+                f"   🆔 Site ID: {self.site_id}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
+            raise
 
     def get_root_items(self) -> List[Dict]:
-        return self._api_get(f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children")["value"]
+        try:
+            return self._api_get(f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children")["value"]
+        except Exception as e:
+            logging.error(
+                f"❌ ERRO ao listar arquivos da raiz\n"
+                f"   🆔 Drive ID: {self.drive_id}\n"
+                f"   🔗 URL: https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
+            return []
 
     def get_item_id_by_path(self, path: str) -> str:
-        return self._api_get(f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}")['id']
+        try:
+            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}"
+            return self._api_get(url)['id']
+        except requests.exceptions.HTTPError as e:
+            if hasattr(e, 'response') and e.response.status_code == 404:
+                logging.error(
+                    f"❌ ITEM NÃO ENCONTRADO\n"
+                    f"   📍 Caminho: {path}\n"
+                    f"   🔗 URL: https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}\n"
+                    f"   📊 Status Code: 404"
+                )
+            raise
 
     def read_excel(self, item_id: str, sheet_name: str, colunas_esperadas: List[str] = None) -> pd.DataFrame:
         try:
@@ -155,7 +274,13 @@ class SharePointClient:
             df['__excel_row_num'] = range(2, len(df) + 2)
             return df
         except Exception as e:
-            logging.error(f"Erro ao ler Excel ({item_id}): {e}")
+            logging.error(
+                f"❌ ERRO ao ler Excel\n"
+                f"   🆔 Item ID: {item_id}\n"
+                f"   📄 Sheet: {sheet_name}\n"
+                f"   🔗 URL: https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{item_id}/workbook/worksheets\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
             return None
 
     def _read_in_chunks(self, item_id: str, sheet_name: str) -> List[List]:
@@ -195,10 +320,27 @@ class SharePointClient:
                     break 
                 except Exception as e:
                     if tentativa < 2:
-                        logging.warning(f"⚠️ Falha ao atualizar {address} (Tentativa {tentativa+1}/3). Aguardando...")
+                        logging.warning(
+                            f"⚠️ FALHA AO ATUALIZAR CÉLULA (Tentativa {tentativa+1}/3)\n"
+                            f"   📍 Localização: Sheet='{sheet}' | Célula='{address}' | Linha={row_num}\n"
+                            f"   📝 Coluna: '{col_name}'\n"
+                            f"   💾 Valor tentado: {repr(value)}\n"
+                            f"   🔗 URL: {url}\n"
+                            f"   ⚠️ Erro: {type(e).__name__}: {str(e)}\n"
+                            f"   ⏳ Aguardando 2 segundos antes de tentar novamente..."
+                        )
                         time.sleep(2) # Espera 2 segundos antes de tentar de novo
                     else:
-                        logging.error(f"❌ Erro persistente ao atualizar {address}: {e}")
+                        logging.error(
+                            f"❌ ERRO PERSISTENTE AO ATUALIZAR CÉLULA (3 tentativas falharam)\n"
+                            f"   📍 Localização: Sheet='{sheet}' | Célula='{address}' | Linha={row_num}\n"
+                            f"   📝 Coluna: '{col_name}'\n"
+                            f"   💾 Valor tentado: {repr(value)}\n"
+                            f"   🔗 URL: {url}\n"
+                            f"   📦 Payload: {payload}\n"
+                            f"   🆔 Item ID: {item_id}\n"
+                            f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+                        )
 
 # ==============================================================================
 # PROCESSADOR DE DADOS
@@ -225,20 +367,74 @@ class DataProcessor:
         return series.astype(str).str.upper().str.replace(r'[^A-Z0-9]', '', regex=True)
 
     @staticmethod
-    def _tratar_data_excel(series: pd.Series) -> pd.Series:
+    def limpar_data_com_extras(data_str: str) -> str:
+        """
+        Extrai apenas a parte da data (DD/MM/YYYY) de strings que contêm data + hora + dia da semana.
+        
+        Exemplos:
+        - '09/02/2026 14:34:27 Seg' -> '09/02/2026'
+        - '09/02/2026 14:34:27' -> '09/02/2026'
+        - '09/02/2026 Seg' -> '09/02/2026'
+        - '09/02/2026' -> '09/02/2026' (sem alteração)
+        """
+        if not data_str or pd.isna(data_str):
+            return ''
+        
+        data_str = str(data_str).strip()
+        
+        if not data_str or data_str.lower() == 'nan':
+            return ''
+        
+        # Padrão regex para DD/MM/YYYY (com validação básica)
+        # Aceita: DD/MM/YYYY, D/MM/YYYY, DD/M/YYYY, D/M/YYYY
+        pattern = r'^(\d{1,2}/\d{1,2}/\d{4})'
+        match = re.match(pattern, data_str)
+        
+        if match:
+            # Extrai apenas a parte da data
+            data_limpa = match.group(1)
+            return data_limpa
+        else:
+            # Se não encontrar padrão, retorna string original
+            return data_str
+
+    @staticmethod
+    def _tratar_data_excel(series: pd.Series, contexto: str = "") -> pd.Series:
         if series is None: return pd.Series(dtype='object')
         
+        # ETAPA 0: Limpeza prévia - Remove hora e dia da semana das datas
+        series_limpa = series.copy()
+        datas_limpas_count = 0
+        exemplos_limpeza = []
+        
+        for idx, val in series.items():
+            if pd.notna(val):
+                val_str = str(val).strip()
+                val_limpo = DataProcessor.limpar_data_com_extras(val_str)
+                if val_limpo != val_str:
+                    series_limpa.iloc[idx] = val_limpo
+                    datas_limpas_count += 1
+                    if len(exemplos_limpeza) < 5:
+                        exemplos_limpeza.append((val_str, val_limpo))
+        
+        if datas_limpas_count > 0:
+            logging.info(f"🧹 [{contexto}] {datas_limpas_count} datas foram limpas (remoção de hora/dia da semana)")
+            if exemplos_limpeza:
+                logging.info(f"🧹 [{contexto}] Exemplos de limpeza (primeiros {len(exemplos_limpeza)}):")
+                for antes, depois in exemplos_limpeza:
+                    logging.info(f"   '{antes}' -> '{depois}'")
+        
         # 1. Tenta converter valores numéricos do Excel (ex: 45322.0)
-        datas_numericas = pd.to_numeric(series.astype(str).str.replace(',', '.'), errors='coerce')
+        datas_numericas = pd.to_numeric(series_limpa.astype(str).str.replace(',', '.'), errors='coerce')
         datas_convertidas = pd.to_datetime(datas_numericas, unit='D', origin='1899-12-30', errors='coerce')
         
         # 2. Tenta converter texto com formato fixo (evita o UserWarning)
-        datas_texto = pd.to_datetime(series, format='%d/%m/%Y', errors='coerce')
+        datas_texto = pd.to_datetime(series_limpa, format='%d/%m/%Y', errors='coerce')
         
         # 3. Se ainda houver NaT (falha no formato fixo), tenta o modo flexível
-        mask_faltante = datas_texto.isna() & series.notna()
+        mask_faltante = datas_texto.isna() & series_limpa.notna()
         if mask_faltante.any():
-            datas_flexiveis = pd.to_datetime(series[mask_faltante], dayfirst=True, errors='coerce')
+            datas_flexiveis = pd.to_datetime(series_limpa[mask_faltante], dayfirst=True, errors='coerce')
             datas_texto = datas_texto.fillna(datas_flexiveis)
             
         return datas_convertidas.fillna(datas_texto)
@@ -246,8 +442,8 @@ class DataProcessor:
     @staticmethod
     def preparar_transporte(df: pd.DataFrame) -> pd.DataFrame:
         logging.info("🔧 Preparando Transporte...")
-        df['__data_temp'] = DataProcessor._tratar_data_excel(df['data_de_carregamento'])
-        df['__data_prev_temp'] = DataProcessor._tratar_data_excel(df['data_prev_carregamento'])
+        df['__data_temp'] = DataProcessor._tratar_data_excel(df['data_de_carregamento'], contexto="Transporte - Data Carregamento")
+        df['__data_prev_temp'] = DataProcessor._tratar_data_excel(df['data_prev_carregamento'], contexto="Transporte - Data Prev Carregamento")
         
         ontem = pd.to_datetime(date.today() - timedelta(days=1)).normalize()
         df = df[(df['__data_temp'].isna()) | (df['__data_temp'] >= ontem)].copy()
@@ -269,12 +465,18 @@ class DataProcessor:
         col_hora = next((c for c in df.columns if c in ['horario de carregamento']), None)
         col_vol  = next((c for c in df.columns if c in ['[item] quantidade', 'volume', 'peso']), None)
 
-        if not col_prod: return pd.DataFrame()
+        if not col_prod:
+            logging.error(
+                f"❌ COLUNA DE PRODUTO NÃO ENCONTRADA NO BSOFT\n"
+                f"   📋 Colunas disponíveis: {', '.join(df.columns.tolist()[:10])}...\n"
+                f"   🔍 Procurando por: '[item] descrição' ou 'produto'"
+            )
+            return pd.DataFrame()
 
         ontem = pd.to_datetime(date.today() - timedelta(days=1)).normalize()
 
         if col_data:
-            df['__data_emissao'] = DataProcessor._tratar_data_excel(df[col_data]).dt.normalize()
+            df['__data_emissao'] = DataProcessor._tratar_data_excel(df[col_data], contexto="Bsoft - Data Emissão").dt.normalize()
             df = df[df['__data_emissao'].notna() & (df['__data_emissao'] >= ontem)].copy()
         else:
             df['__data_emissao'] = pd.NaT
