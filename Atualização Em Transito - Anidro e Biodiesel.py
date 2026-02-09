@@ -1,21 +1,58 @@
 import os
+import re
 import logging
 import pandas as pd
 import requests
 import unicodedata 
 from dotenv import load_dotenv
 from datetime import date, timedelta, datetime
+from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
 # ==============================================================================
 # CONFIGURAÇÃO E LOGGING
 # ==============================================================================
-logging.basicConfig(
-    level=logging.INFO,  # <--- Mude de INFO para DEBUG aqui
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+def setup_logging():
+    """
+    Configura o sistema de logging com:
+    - Console: mostra todos os logs (INFO, WARNING, ERROR)
+    - Arquivo: salva apenas WARNING e ERROR na pasta logs/
+    """
+    # Criar pasta de logs se não existir
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Nome do arquivo de log baseado no nome do script
+    script_name = Path(__file__).stem
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = logs_dir / f"{script_name}_erros_{timestamp}.log"
+    
+    # Configurar formato dos logs
+    log_format = '%(asctime)s - %(levelname)s - %(message)s'
+    date_format = '%Y-%m-%d %H:%M:%S'
+    
+    # Handler para console (todos os níveis)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter(log_format, date_format))
+    
+    # Handler para arquivo (apenas WARNING e ERROR)
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.WARNING)  # Apenas WARNING e ERROR
+    file_handler.setFormatter(logging.Formatter(log_format, date_format))
+    
+    # Configurar o logger raiz
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers.clear()  # Limpar handlers padrão
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+    
+    logging.info(f"📝 Sistema de logs configurado. Logs de erro serão salvos em: {log_file}")
+    return log_file
 
+# Configurar logging
+log_file_path = setup_logging()
 load_dotenv()
 
 class Config:
@@ -101,10 +138,24 @@ class SharePointClient:
             "client_secret": self.config.CLIENT_SECRET,
             "scope": "https://graph.microsoft.com/.default"
         }
-        response = requests.post(url, data=data)
-        response.raise_for_status()
-        logging.info("Token de acesso obtido com sucesso.")
-        return response.json()["access_token"]
+        try:
+            response = requests.post(url, data=data)
+            response.raise_for_status()
+            logging.info("Token de acesso obtido com sucesso.")
+            return response.json()["access_token"]
+        except requests.exceptions.RequestException as e:
+            status_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
+            response_text = getattr(e.response, 'text', None) if hasattr(e, 'response') and hasattr(e.response, 'text') else None
+            logging.error(
+                f"❌ ERRO ao obter token de autenticação\n"
+                f"   🔗 URL: {url}\n"
+                f"   🆔 Tenant ID: {self.config.TENANT_ID}\n"
+                f"   🆔 Client ID: {self.config.CLIENT_ID}\n"
+                f"   📊 Status Code: {status_code or 'N/A'}\n"
+                f"   📝 Response: {response_text[:500] if response_text else 'N/A'}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
+            raise
 
     def _api_request(self, method: str, url: str, params: Dict = None, json: Dict = None) -> Any:
         """Centraliza e trata requisições à API do Microsoft Graph."""
@@ -114,7 +165,18 @@ class SharePointClient:
             response.raise_for_status()
             return response.json() if response.content else None
         except requests.exceptions.HTTPError as e:
-            logging.error(f"Erro na requisição da API ({method} {url}): {e.response.text}")
+            status_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
+            response_text = getattr(e.response, 'text', None) if hasattr(e, 'response') and hasattr(e.response, 'text') else None
+            logging.error(
+                f"❌ ERRO na requisição da API\n"
+                f"   🔗 Método: {method}\n"
+                f"   🔗 URL: {url}\n"
+                f"   📦 Params: {params}\n"
+                f"   📦 JSON: {json}\n"
+                f"   📊 Status Code: {status_code or 'N/A'}\n"
+                f"   📝 Response: {response_text[:500] if response_text else 'N/A'}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
             raise
 
     def _get_id(self, resource: str, path: str) -> str:
@@ -125,7 +187,14 @@ class SharePointClient:
             return self._api_request('get', url)['id']
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                logging.error(f"Não foi possível encontrar o recurso: {path}")
+                logging.error(
+                    f"❌ RECURSO NÃO ENCONTRADO\n"
+                    f"   📂 Recurso: '{resource}'\n"
+                    f"   📄 Caminho: '{path}'\n"
+                    f"   🔗 URL: {url}\n"
+                    f"   📊 Status Code: 404\n"
+                    f"   🔍 Verifique se o recurso existe no SharePoint"
+                )
                 raise FileNotFoundError(f"❌ Recurso '{resource}' em '{path}' não encontrado.") from e
             raise
 
@@ -147,7 +216,12 @@ class SharePointClient:
             url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children"
             return self._api_request('get', url).get("value", [])
         except Exception as e:
-            logging.error(f"Erro ao listar arquivos da raiz: {e}")
+            logging.error(
+                f"❌ ERRO ao listar arquivos da raiz\n"
+                f"   🆔 Drive ID: {self.drive_id}\n"
+                f"   🔗 URL: {url}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
             return []
 
     # Método mantido para compatibilidade, caso precise no futuro, mas não usado agora para transporte
@@ -159,7 +233,12 @@ class SharePointClient:
             url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{folder_id}/children"
             return self._api_request('get', url).get("value", [])
         except FileNotFoundError:
-            logging.error(f"Pasta '{folder_name}' não encontrada no SharePoint.")
+            logging.error(
+                f"❌ PASTA NÃO ENCONTRADA NO SHAREPOINT\n"
+                f"   📂 Pasta: '{folder_name}'\n"
+                f"   🆔 Drive ID: {self.drive_id}\n"
+                f"   🔍 Verifique se a pasta existe no SharePoint"
+            )
             return []
     
     def get_item_by_path(self, item_path: str) -> Dict:
@@ -170,7 +249,14 @@ class SharePointClient:
             return self._api_request('get', url)
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
-                logging.error(f"Não foi possível encontrar o item no caminho: {item_path}")
+                logging.error(
+                    f"❌ ITEM NÃO ENCONTRADO NO CAMINHO\n"
+                    f"   📄 Caminho: '{item_path}'\n"
+                    f"   🆔 Drive ID: {self.drive_id}\n"
+                    f"   🔗 URL: {url}\n"
+                    f"   📊 Status Code: 404\n"
+                    f"   🔍 Verifique se o arquivo/pasta existe no SharePoint"
+                )
                 raise FileNotFoundError(f"❌ Item em '{item_path}' não encontrado.") from e
             raise
     
@@ -292,7 +378,13 @@ class SharePointClient:
                     else:
                         raise e
             except Exception as e:
-                logging.error(f"Erro ao ler dados da planilha do SharePoint: {e}")
+                logging.error(
+                    f"❌ ERRO ao ler dados da planilha do SharePoint\n"
+                    f"   🆔 Item ID: {item_id}\n"
+                    f"   📄 Sheet esperado: '{sheet_name}'\n"
+                    f"   📄 Sheet usado: {actual_sheet_name or 'N/A'}\n"
+                    f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+                )
                 return None, "Erro ao processar a planilha."
 
     def read_generic_sheet_data(self, item_id: str, sheet_name: str) -> Tuple[pd.DataFrame, str]:
@@ -331,11 +423,23 @@ class SharePointClient:
         
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 400 and "RangeExceedsLimit" in str(e.response.text):
-                    logging.error(f"Erro ao ler planilha genérica: O usedRange ({address}) excedeu o limite da API...")
-                    return None, "Arquivo muito grande (RangeExceedsLimit)."
+                logging.error(
+                    f"❌ ERRO: ARQUIVO MUITO GRANDE (RangeExceedsLimit)\n"
+                    f"   🆔 Item ID: {item_id}\n"
+                    f"   📄 Sheet: {actual_sheet_name or 'N/A'}\n"
+                    f"   📍 UsedRange: {address if 'address' in locals() else 'N/A'}\n"
+                    f"   ⚠️ Erro: O usedRange excedeu o limite da API"
+                )
+                return None, "Arquivo muito grande (RangeExceedsLimit)."
             raise
         except Exception as e:
-            logging.error(f"Erro ao ler dados da planilha genérica do SharePoint: {e}")
+            logging.error(
+                f"❌ ERRO ao ler dados da planilha genérica do SharePoint\n"
+                f"   🆔 Item ID: {item_id}\n"
+                f"   📄 Sheet esperado: '{sheet_name}'\n"
+                f"   📄 Sheet usado: {actual_sheet_name or 'N/A'}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
             return None, "Erro ao processar a planilha genérica."
 
     def update_cell(self, file_id: str, sheet_name: str, row_index: int, col_name: str, value: Any):
@@ -343,12 +447,25 @@ class SharePointClient:
         try:
             col_idx = self.config.COLUNAS_TRANSPORTE.index(col_name)
             url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{file_id}/workbook/worksheets/{sheet_name}/cell(row={row_index-1},column={col_idx})"
+            col_letter = self._convert_to_excel_col(col_idx)
+            address = f"{col_letter}{row_index}"
             self._api_request('patch', url, json={'values': [[value]]})
             logging.debug(f"Célula atualizada: {col_name}='{value}' na linha {row_index}.")
         except ValueError:
-            logging.error(f"A coluna '{col_name}' não foi encontrada na lista de colunas de transporte.")
+            logging.error(
+                f"❌ COLUNA NÃO ENCONTRADA NO MAPEAMENTO\n"
+                f"   📝 Coluna: '{col_name}'\n"
+                f"   📋 Colunas disponíveis: {self.config.COLUNAS_TRANSPORTE}"
+            )
         except Exception as e:
-            logging.error(f"Erro ao atualizar a célula na linha {row_index}, coluna '{col_name}': {e}")
+            logging.error(
+                f"❌ ERRO ao atualizar célula no Excel\n"
+                f"   📍 Localização: Sheet='{sheet_name}' | Linha={row_index} | Coluna='{col_name}'\n"
+                f"   💾 Valor tentado: {repr(value)}\n"
+                f"   🔗 URL: {url}\n"
+                f"   🆔 Item ID: {file_id}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
     
     def add_rows(self, file_id: str, sheet_name: str, rows_data: List[List[Any]]):
         """Adiciona múltiplas linhas no final de uma planilha."""
@@ -366,7 +483,16 @@ class SharePointClient:
             self._api_request('patch', url_update, json={'values': rows_data})
             logging.debug(f"Adicionadas {num_new_rows} novas linhas no SharePoint (ID: {file_id}).")
         except Exception as e:
-            logging.error(f"Erro ao adicionar novas linhas no SharePoint: {e}")
+            logging.error(
+                f"❌ ERRO ao adicionar novas linhas no Excel\n"
+                f"   📍 Localização: Sheet='{sheet_name}'\n"
+                f"   📊 Quantidade de linhas: {len(rows_data)}\n"
+                f"   📊 Quantidade de colunas: {num_cols if 'num_cols' in locals() else 'N/A'}\n"
+                f"   📍 Endereço: {address if 'address' in locals() else 'N/A'}\n"
+                f"   🔗 URL: {url_update if 'url_update' in locals() else 'N/A'}\n"
+                f"   🆔 Item ID: {file_id}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
 
     # --- FUNÇÃO PARA SOBRESCREVER ABA (COM FORÇA BRUTA TEXTO) ---
     def overwrite_sheet_with_dataframe(self, file_path: str, sheet_name: str, df: pd.DataFrame):
@@ -438,7 +564,14 @@ class SharePointClient:
                 logging.info(f"Aba '{sheet_name}' atualizada com sucesso no arquivo '{file_path}'. ({num_rows} linhas)")
 
             except Exception as e:
-                logging.error(f"Erro ao sobrescrever/criar a aba no SharePoint: {e}")
+                logging.error(
+                    f"❌ ERRO ao sobrescrever/criar a aba no SharePoint\n"
+                    f"   📄 Arquivo: {file_path}\n"
+                    f"   📄 Sheet: {sheet_name}\n"
+                    f"   🆔 Item ID: {file_id if 'file_id' in locals() else 'N/A'}\n"
+                    f"   📊 Linhas: {num_rows if 'num_rows' in locals() else 'N/A'}\n"
+                    f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+                )
 # ==============================================================================
 # CLASSE PARA PROCESSAMENTO DE DADOS
 # ==============================================================================
@@ -457,11 +590,66 @@ class DataProcessor:
         return series.astype(str).str.normalize('NFKD').str.encode('ascii', 'ignore').str.decode('utf-8').str.strip().str.upper()
 
     @staticmethod
-    def _tratar_data_excel(series: pd.Series) -> pd.Series:
+    def limpar_data_com_extras(data_str: str) -> str:
+        """
+        Extrai apenas a parte da data (DD/MM/YYYY) de strings que contêm data + hora + dia da semana.
+        
+        Exemplos:
+        - '09/02/2026 14:34:27 Seg' -> '09/02/2026'
+        - '09/02/2026 14:34:27' -> '09/02/2026'
+        - '09/02/2026 Seg' -> '09/02/2026'
+        - '09/02/2026' -> '09/02/2026' (sem alteração)
+        """
+        if not data_str or pd.isna(data_str):
+            return ''
+        
+        data_str = str(data_str).strip()
+        
+        if not data_str or data_str.lower() == 'nan':
+            return ''
+        
+        # Padrão regex para DD/MM/YYYY (com validação básica)
+        # Aceita: DD/MM/YYYY, D/MM/YYYY, DD/M/YYYY, D/M/YYYY
+        pattern = r'^(\d{1,2}/\d{1,2}/\d{4})'
+        match = re.match(pattern, data_str)
+        
+        if match:
+            # Extrai apenas a parte da data
+            data_limpa = match.group(1)
+            return data_limpa
+        else:
+            # Se não encontrar padrão, retorna string original
+            return data_str
+
+    @staticmethod
+    def _tratar_data_excel(series: pd.Series, contexto: str = "") -> pd.Series:
         """Converte colunas de data de forma inteligente."""
-        datas_numericas = pd.to_numeric(series.astype(str).str.replace(',', '.'), errors='coerce')
+        # ETAPA 0: Limpeza prévia - Remove hora e dia da semana das datas
+        series_limpa = series.copy()
+        datas_limpas_count = 0
+        exemplos_limpeza = []
+        
+        for idx, val in series.items():
+            if pd.notna(val):
+                val_str = str(val).strip()
+                val_limpo = DataProcessor.limpar_data_com_extras(val_str)
+                if val_limpo != val_str:
+                    series_limpa.iloc[idx] = val_limpo
+                    datas_limpas_count += 1
+                    if len(exemplos_limpeza) < 5:  # Guarda primeiros 5 exemplos
+                        exemplos_limpeza.append((val_str, val_limpo))
+        
+        if datas_limpas_count > 0:
+            logging.info(f"🧹 [{contexto}] {datas_limpas_count} datas foram limpas (remoção de hora/dia da semana)")
+            if exemplos_limpeza:
+                logging.info(f"🧹 [{contexto}] Exemplos de limpeza (primeiros {len(exemplos_limpeza)}):")
+                for antes, depois in exemplos_limpeza:
+                    logging.info(f"   '{antes}' -> '{depois}'")
+        
+        # Continuar com lógica de conversão usando series_limpa
+        datas_numericas = pd.to_numeric(series_limpa.astype(str).str.replace(',', '.'), errors='coerce')
         datas_convertidas = pd.to_datetime(datas_numericas, unit='D', origin='1899-12-30', errors='coerce')
-        datas_texto = pd.to_datetime(series, dayfirst=True, errors='coerce')
+        datas_texto = pd.to_datetime(series_limpa, dayfirst=True, errors='coerce')
         return datas_convertidas.fillna(datas_texto)
 
     @staticmethod
@@ -485,7 +673,12 @@ class DataProcessor:
             col_p3 = next((c for c in ['placa3'] if c in df.columns), None)
 
             if not col_produto:
-                logging.error("❌ Coluna de Produto (ex: '[item] descrição') não encontrada no Qive.")
+                logging.error(
+                    f"❌ COLUNA DE PRODUTO NÃO ENCONTRADA NO QIVE\n"
+                    f"   🔍 Colunas esperadas: ['[item] descrição', 'produto']\n"
+                    f"   📋 Colunas encontradas: {list(df.columns)[:20] if len(df.columns) > 0 else 'Nenhuma'}\n"
+                    f"   ⚠️ Não foi possível criar chaves de cruzamento"
+                )
                 return pd.DataFrame()
             
             if not col_p1:
@@ -497,7 +690,7 @@ class DataProcessor:
             df['placa2_norm'] = self._limpar_placa(df[col_p2]) if col_p2 else ''
             df['placa3_norm'] = self._limpar_placa(df[col_p3]) if col_p3 else ''
             
-            df['data_emissao_faturado'] = self._tratar_data_excel(df.get('data emissão'))
+            df['data_emissao_faturado'] = self._tratar_data_excel(df.get('data emissão'), contexto="Qive - Data Emissão")
             df['número'] = df.get('número', '').astype(str).str.strip()
             
         else:
@@ -555,7 +748,13 @@ class DataProcessor:
             Qive_item = sp_client.get_item_by_path(self.config.Qive_FILENAME)
             
             if not Qive_item or 'file' not in Qive_item:
-                logging.error(f"Caminho '{self.config.Qive_FILENAME}' encontrado, mas não é um arquivo.")
+                logging.error(
+                    f"❌ ITEM ENCONTRADO MAS NÃO É ARQUIVO\n"
+                    f"   📄 Caminho: '{self.config.Qive_FILENAME}'\n"
+                    f"   🆔 Item ID: {Qive_item.get('id', 'N/A') if Qive_item else 'N/A'}\n"
+                    f"   📊 Tipo: {Qive_item.get('file', {}).get('mimeType', 'N/A') if Qive_item and 'file' in Qive_item else 'Não é arquivo'}\n"
+                    f"   🔍 O item existe mas não é um arquivo Excel"
+                )
                 return pd.DataFrame()
             
             logging.info(f"Arquivo Qive encontrado (ID: {Qive_item['id']}). Lendo dados...")
@@ -563,7 +762,13 @@ class DataProcessor:
             df, sheet_name = sp_client.read_generic_sheet_data(Qive_item['id'], self.config.Qive_SHEET_NAME)
             
             if df is None:
-                logging.error(f"Falha ao ler o arquivo Qive: {sheet_name}")
+                logging.error(
+                    f"❌ FALHA AO LER ARQUIVO QIVE\n"
+                    f"   📄 Arquivo: '{self.config.Qive_FILENAME}'\n"
+                    f"   🆔 Item ID: {Qive_item.get('id', 'N/A')}\n"
+                    f"   📄 Sheet esperado: '{self.config.Qive_SHEET_NAME}'\n"
+                    f"   ⚠️ Motivo: {sheet_name}"
+                )
                 return pd.DataFrame()
 
             logging.info(f"Arquivo Qive lido. Total de linhas brutas: {len(df)}")
@@ -583,7 +788,12 @@ class DataProcessor:
                 else:
                     logging.warning(f"Não foi possível aplicar o filtro de 'Cancelamento'. O arquivo Qive tem menos de 14 colunas.")
             except Exception as e:
-                logging.error(f"Erro ao aplicar filtro de 'Cancelamento' na coluna N: {e}")
+                logging.error(
+                    f"❌ ERRO ao aplicar filtro de 'Cancelamento'\n"
+                    f"   📄 Arquivo: Qive\n"
+                    f"   📊 Coluna N: '{col_n_name if 'col_n_name' in locals() else 'N/A'}'\n"
+                    f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+                )
 
             try:
                 col_data_nome_original = col_names_map.get('data emissão')
@@ -591,7 +801,7 @@ class DataProcessor:
                 if col_data_nome_original:
                     logging.info(f"Aplicando filtro de data D-3 na coluna G (detectada como: '{col_data_nome_original}')")
                     
-                    df[col_data_nome_original] = self._tratar_data_excel(df[col_data_nome_original])
+                    df[col_data_nome_original] = self._tratar_data_excel(df[col_data_nome_original], contexto="Qive - Filtro D-3")
                     
                     cutoff_date = pd.to_datetime(date.today() - timedelta(days=3)).normalize()
                     
@@ -602,7 +812,12 @@ class DataProcessor:
                 else:
                     logging.warning(f"Coluna 'data emissão' (esperada na Coluna G) não encontrada. Filtro de data D-3 não foi aplicado.")
             except Exception as e:
-                logging.error(f"Erro ao aplicar filtro de data D-3: {e}")
+                logging.error(
+                    f"❌ ERRO ao aplicar filtro de data D-3\n"
+                    f"   📄 Arquivo: Qive\n"
+                    f"   📊 Coluna: '{col_data_nome_original if 'col_data_nome_original' in locals() else 'N/A'}'\n"
+                    f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+                )
 
             logging.info(f"Total de linhas do Qive após filtros: {len(df)}")
             
@@ -616,10 +831,22 @@ class DataProcessor:
             return self._criar_chaves(df, is_faturado=True) 
             
         except FileNotFoundError:
-            logging.error(f"Arquivo de faturados '{self.config.Qive_FILENAME}' não encontrado na raiz da biblioteca 'Documentos'.")
+            logging.error(
+                f"❌ ARQUIVO DE FATURADOS NÃO ENCONTRADO\n"
+                f"   📄 Arquivo esperado: '{self.config.Qive_FILENAME}'\n"
+                f"   📂 Localização: Raiz da biblioteca 'Documentos'\n"
+                f"   🔍 Verifique se o arquivo existe no SharePoint"
+            )
             return pd.DataFrame()
         except Exception as e:
-            logging.error(f"Erro ao carregar o arquivo de faturados do SharePoint: {e}", exc_info=True)
+            import traceback
+            logging.error(
+                f"❌ ERRO ao carregar o arquivo de faturados do SharePoint\n"
+                f"   📄 Arquivo: '{self.config.Qive_FILENAME}'\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}\n"
+                f"   📍 Traceback:\n"
+                + "\n".join([f"      {linha}" for linha in traceback.format_exc().split('\n') if linha.strip()])
+            )
             return pd.DataFrame()
 
 # ==============================================================================
@@ -837,7 +1064,13 @@ def main():
                 report_df.to_csv(report_filename, index=False, sep=';', encoding='utf-8-sig')
                 logging.info(f"✅ Relatório de tentativas salvo em: {full_report_path}")
             except Exception as e:
-                logging.error(f"Falha ao salvar relatório de tentativas: {e}")
+                logging.error(
+                    f"❌ FALHA AO SALVAR RELATÓRIO DE TENTATIVAS\n"
+                    f"   📄 Arquivo: {report_filename}\n"
+                    f"   📊 Linhas: {len(report_df) if 'report_df' in locals() else 'N/A'}\n"
+                    f"   📍 Caminho completo: {full_report_path if 'full_report_path' in locals() else 'N/A'}\n"
+                    f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+                )
         else:
             logging.info("Nenhuma tentativa de match foi processada para gerar relatório.")
         
@@ -889,7 +1122,13 @@ def main():
                 logging.info("✅ Nenhuma NF sobrando. Todas as NFs elegíveis foram reconciliadas.")
                 
         except Exception as e:
-            logging.error(f"Falha ao atualizar relatório de exceções no SharePoint: {e}")
+            logging.error(
+                f"❌ FALHA AO ATUALIZAR RELATÓRIO DE EXCEÇÕES\n"
+                f"   📄 Arquivo: '{Config.REPORT_DIVERGENCIA_FILENAME}'\n"
+                f"   📄 Sheet: '{Config.REPORT_DIVERGENCIA_SHEET}'\n"
+                f"   📊 Linhas: {qtd_excecoes if 'qtd_excecoes' in locals() else 'N/A'}\n"
+                f"   ⚠️ Erro: {type(e).__name__}: {str(e)}"
+            )
 
         logging.info("--- Resumo das Atualizações por Arquivo ---")
         if not file_update_summary:
@@ -904,7 +1143,14 @@ def main():
         logging.info(f"✅ Processo concluído. Total de {updates_count} viagens foram atualizadas para 'EM TRÂNSITO'.")
 
     except Exception as e:
-        logging.critical(f"Ocorreu um erro fatal na aplicação: {e}", exc_info=True)
+        import traceback
+        logging.critical(
+            f"🔥 ERRO FATAL NA APLICAÇÃO\n"
+            f"   ⚠️ Tipo do erro: {type(e).__name__}\n"
+            f"   📝 Mensagem: {str(e)}\n"
+            f"   📍 Traceback completo:\n"
+            + "\n".join([f"      {linha}" for linha in traceback.format_exc().split('\n') if linha.strip()])
+        )
 
 if __name__ == "__main__":
     main()
