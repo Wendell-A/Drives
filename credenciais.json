@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "sapient-codex-344314",
+  "private_key_id": "2d6ac87844f2e122dc004aa2d451f01c17bc9250",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCkrRRXWj29waFe\nb65Ee9yB9mAYAFBNH7O/yNNr1UK8aI9LH1PVnRJTo4CqdiPVyZ8OYSLry+7T0V7/\nPEbgLu7K7fMeQHQPebUaEHMN3NeXkzLxohsUDFlkpScDB8NN5LF5TMvjncxUEX45\nL4D0CPL0143fJn0H2zEa+Twn07LocqiFr8TLTog+cO8V8pgJYysKVWfLR0TNlgTl\nAWQz2sfhPAaPCaOd6zv48fddgj6RudHjnmMJDWMHW7ENe+AYGVWjG33Hffi6nFyD\nQaS/TMq2xcUGkoVUKmY+wClFHkGRDXaouwv9sdULkfemQTzuIQH0dNFmUuzibNrz\nEy6aT44pAgMBAAECggEADXwx7fxREYS1ePUGzYtiEY9yK4z9Bm/J6bLho1M1sZWT\nZGi2lgfUjB5Xxz3A7f0ihgwszqfm0Rg0YgzW1f1p5xrIvam0B19lVfLSZSh4TCyM\n764hbwka2evPT8d3Nh377Y29JZDSvnCnSDoMYo+IC8ZKEyPE+dt4gDe4Nh+3JyM4\n6b1XGIG+HbbiAiH0Enb15EY2m1u/MZO+Regrb6V8/9M3K2XPCzHJXWj8CgPCfVLb\n6Sg84gH/doDibqwqh480XI47tpksyHDDoZLdtOion+3f7ClxBk+ZZZ47gb+DJT+Z\nVzxc2SDr/ZAsRJ7+r6ZmFWV3oEDNRd0+kFhukck0XQKBgQDQBRqFMNJBRbmSSb0w\nRz9IlVhlTEAxUdwL/5ZJlzUxQiNaJzJm8ColTegG4hsqDy4dGlmogwpPuuJCzCTS\n43Cu1E5Mxu+VQI3pXGH8v2K+2AIuE3HfHzcKmm8wMaoF09VXDAHJDsghyJYWUGQs\nx5ssUx11uIo95awXZmFpa3LsxQKBgQDKqKnpMDDziEvz6gL/0k8uIrLpZujnFPsy\n4bNOnWnlN80gh1MVd987mm8guEdk+k5+lcSdCFA1oa0CtdhoSsr58D9W3G2NUSyh\nGIQIahRbDMKGAIzKbH4fX4BSgS15TANHP282oHScti+uBNGWltS+rxCXqhcsq/6B\nJTUABh+6FQKBgDI1KSOAlx7d/15JofonGCUitsUsVEoTIfNbayCz+Ei9V98Imuex\ni9qZJSmUJU5Pf6fSllVP24tG5hmNQE4OS0JHR+bMFUOG4zmx7IyefOznIg+Q7ekW\nlahfgfq14f2qFVH/OecXREKzMVaNbMBKJS/bl760Hdm2t4SmV1ikcIapAoGAHs7z\nPaL43hzrRwJdQFzNcrsNrdPaNj8HTR3or1vY3GLWSUqpQ8s8YYhBupypJd2zjyTf\nhevcnbqdXZsdcgVkxAhU6LSL5v7fJQJgGBNgUtMmw05UGPXTWpufG2vN6PG4Ud1/\n37MW5zf/GZpb7mOxpedhQ101NrJS93kbjIxhyF0CgYBeqp1avlTV3fF/rS6U3xqU\naADPkzWpfXPtcTJfeEuXOsmTqFstWU5fwrzZOusdAk/KH5QjheyZfF3p0P7FbqlN\nBGPKAb0uH8WAvwipoiA8X/WsilYYVOuIpRNKsd7sb9Kte1D+iezS1cjWS3lcb0AY\nP7TyXgk8qYNsvZ8ZzZMPKQ==\n-----END PRIVATE KEY-----\n",
+  "client_email": "apidrive-357@sapient-codex-344314.iam.gserviceaccount.com",
+  "client_id": "105909802657551845171",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/apidrive-357%40sapient-codex-344314.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
