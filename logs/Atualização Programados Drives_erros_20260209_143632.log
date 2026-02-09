@@ -1,0 +1,59 @@
+2026-02-09 14:37:22 - WARNING - ⚠️ [Trafegus] VALORES NÃO CONVERTIDOS PARA DATETIME
+   📊 Total não convertidos: 337 de 337
+   📝 Exemplos (primeiros 10):
+      [0] '09/02/2026 14:34:27 Seg'
+      [1] '09/02/2026 14:34:38 Seg'
+      [2] '09/02/2026 14:34:39 Seg'
+      [3] '09/02/2026 14:23:32 Seg'
+      [4] '09/02/2026 14:34:38 Seg'
+      [5] '09/02/2026 14:33:34 Seg'
+      [6] '09/02/2026 14:34:57 Seg'
+      [7] '09/02/2026 14:34:57 Seg'
+      [8] '09/02/2026 14:35:41 Seg'
+      [9] '09/02/2026 14:34:56 Seg'
+2026-02-09 14:37:52 - ERROR - ❌ ERRO na requisição PATCH
+   🔗 URL: https://graph.microsoft.com/v1.0/drives/b!Mjl6scJ-A0SjrXEC1ZJ4smOknGOldStDrsfR1s8lAuw6D_9cQAL4T4qysFql9n3b/items/01VNZCIFDYORW4LMWUDJCKWXRPVCRM6EGI/workbook/worksheets/Base/range(address='U834')
+   📦 Payload: {'values': [[' | 0,059 KM DE MANGUINHOS DISTRIBUIDORA - DUQUE DE CAXIAS - RJ (DISTRIBUIDORA)']]}
+   📊 Status Code: 405
+   📝 Response: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>405 - HTTP verb used to access this page is not allowed.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-size:2.4em
+   ⚠️ Erro: HTTPError: 405 Client Error: Method Not Allowed for url: https://br2-excel.officeapps.live.com/x/_layouts/xlrestinternal.aspx?ui=pt-BR&rs=pt-BR&WOPISrc=https%3a%2f%2fallservices1.sharepoint.com%2fsites%2fTransportes%2f_vti_bin%2fwopi.ashx%2ffiles%2fc56d7478d4b2441aab5e2fa8a2cf10c8&wdEnableRoaming=1&mscc=1&hid=655af5a1-30e8-a000-6d6b-68b4bb992f04&wdRestPart=_api%2fworksheets(%27Base%27)%2frange(address%3d%27U834%27)
+2026-02-09 14:37:52 - ERROR - ❌ ERRO ao atualizar célula no Excel
+   📍 Localização: Sheet='Base' | Célula='U834' | Linha=834
+   📝 Coluna: 'data_chegada' (letra: U)
+   💾 Valor tentado: ' | 0,059 KM DE MANGUINHOS DISTRIBUIDORA - DUQUE DE CAXIAS - RJ (DISTRIBUIDORA)'
+   🔗 URL: https://graph.microsoft.com/v1.0/drives/b!Mjl6scJ-A0SjrXEC1ZJ4smOknGOldStDrsfR1s8lAuw6D_9cQAL4T4qysFql9n3b/items/01VNZCIFDYORW4LMWUDJCKWXRPVCRM6EGI/workbook/worksheets/Base/range(address='U834')
+   📦 Payload: {'values': [[' | 0,059 KM DE MANGUINHOS DISTRIBUIDORA - DUQUE DE CAXIAS - RJ (DISTRIBUIDORA)']]}
+   🆔 Item ID: 01VNZCIFDYORW4LMWUDJCKWXRPVCRM6EGI
+   ⚠️ Erro: HTTPError: 405 Client Error: Method Not Allowed for url: https://br2-excel.officeapps.live.com/x/_layouts/xlrestinternal.aspx?ui=pt-BR&rs=pt-BR&WOPISrc=https%3a%2f%2fallservices1.sharepoint.com%2fsites%2fTransportes%2f_vti_bin%2fwopi.ashx%2ffiles%2fc56d7478d4b2441aab5e2fa8a2cf10c8&wdEnableRoaming=1&mscc=1&hid=655af5a1-30e8-a000-6d6b-68b4bb992f04&wdRestPart=_api%2fworksheets(%27Base%27)%2frange(address%3d%27U834%27)
+2026-02-09 14:39:47 - ERROR - ❌ ERRO na requisição PATCH
+   🔗 URL: https://graph.microsoft.com/v1.0/drives/b!Mjl6scJ-A0SjrXEC1ZJ4smOknGOldStDrsfR1s8lAuw6D_9cQAL4T4qysFql9n3b/items/01VNZCIFFLL37L5BSJCZGZJWUZTNVQRHPM/workbook/worksheets/Base/range(address='U627')
+   📦 Payload: {'values': [[' | NO LOCAL']]}
+   📊 Status Code: 405
+   📝 Response: <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>405 - HTTP verb used to access this page is not allowed.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-size:2.4em
+   ⚠️ Erro: HTTPError: 405 Client Error: Method Not Allowed for url: https://ca3-excel.officeapps.live.com/x/_layouts/xlrestinternal.aspx?ui=pt-BR&rs=pt-BR&WOPISrc=https%3a%2f%2fallservices1.sharepoint.com%2fsites%2fTransportes%2f_vti_bin%2fwopi.ashx%2ffiles%2fbefe5eab49864d1694da999b6b089dec&wdEnableRoaming=1&mscc=1&hid=685af5a1-d031-a000-6d6b-60fd71d765e1&wdRestPart=_api%2fworksheets(%27Base%27)%2frange(address%3d%27U627%27)
+2026-02-09 14:39:47 - ERROR - ❌ ERRO ao atualizar célula no Excel
+   📍 Localização: Sheet='Base' | Célula='U627' | Linha=627
+   📝 Coluna: 'data_chegada' (letra: U)
+   💾 Valor tentado: ' | NO LOCAL'
+   🔗 URL: https://graph.microsoft.com/v1.0/drives/b!Mjl6scJ-A0SjrXEC1ZJ4smOknGOldStDrsfR1s8lAuw6D_9cQAL4T4qysFql9n3b/items/01VNZCIFFLL37L5BSJCZGZJWUZTNVQRHPM/workbook/worksheets/Base/range(address='U627')
+   📦 Payload: {'values': [[' | NO LOCAL']]}
+   🆔 Item ID: 01VNZCIFFLL37L5BSJCZGZJWUZTNVQRHPM
+   ⚠️ Erro: HTTPError: 405 Client Error: Method Not Allowed for url: https://ca3-excel.officeapps.live.com/x/_layouts/xlrestinternal.aspx?ui=pt-BR&rs=pt-BR&WOPISrc=https%3a%2f%2fallservices1.sharepoint.com%2fsites%2fTransportes%2f_vti_bin%2fwopi.ashx%2ffiles%2fbefe5eab49864d1694da999b6b089dec&wdEnableRoaming=1&mscc=1&hid=685af5a1-d031-a000-6d6b-60fd71d765e1&wdRestPart=_api%2fworksheets(%27Base%27)%2frange(address%3d%27U627%27)
